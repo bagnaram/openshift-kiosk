@@ -1,0 +1,64 @@
+# Using CentOS 7 base image and VNC
+# Version 1
+
+# Pull the rhel image from the local repository
+FROM rhel7.2
+MAINTAINER Ken Evensen
+
+LABEL io.openshift.expose-services="5901:tcp"
+
+USER root
+ENV DISPLAY="" \
+    HOME="/vnc"
+
+ARG vncpassword=password
+
+ADD epel.repo /etc/yum.repos.d
+
+RUN yum clean all && \
+    yum update -y && \
+    yum install -y --setopt=tsflags=nodocs \
+                   tigervnc-server \
+    		   xorg-x11-server-utils \
+                   xorg-x11-server-Xvfb \
+                   xorg-x11-fonts-* \
+                   nss-wrapper \
+                   gettext \
+                   xterm && \
+                   yum clean all && \
+                   rm -rf /var/cache/yum
+
+RUN yum install -y --setopt=tsflags=nodocs \
+                  openbox \
+                  xfce4-panel \
+                  xfwm4 \
+                  xterm \
+                  firefox \
+                  yum clean all && \
+                  rm -rf /var/cache/yum/*
+
+RUN /bin/dbus-uuidgen --ensure && \
+    mkdir -p /vnc && mkdir -p /etc/skel/.vnc
+
+ADD start.sh /etc/skel/start.sh
+ADD passwd.template /etc/skel/passwd.template
+
+ADD xstartup /etc/skel/.vnc
+ADD xfce4-panel.xml /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce-panel.xml
+
+RUN echo "${vncpassword}" | vncpasswd -f > /etc/skel/.vnc/passwd && \
+    touch /etc/xkel/.Xauthority
+
+RUN chmod 775 /etc/skel/.vnc/xstartup && \
+    chmod 755 /etc/skel/start.sh && \
+    chmod 600 /etc/skel/.vnc/passwd
+
+RUN chgrp -R 0 /vnc && chmod -R g+r2 /vnc
+RUN find /vnc -type d -exec chmod g+x {} +
+RUN chgrp -R 0 /etc/skel && chmod -R g+r2 /etc/skel
+RUN find /etc/skel -type d -exec chmod g+x {} +
+
+EXPOSE 5901
+WORKDIR ${HOME}
+USER 1001
+ENTRYPOINT ["/etc/skel/start.sh"]
