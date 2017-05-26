@@ -6,7 +6,7 @@ FROM centos-vnc
 MAINTAINER Kenneth D. Evensen <kevensen@redhat.com>
 
 USER root
-RUN yum install -y --enable-repo=rhel-7-server-extras-rpms --enablerepo=rhel-7-server-ose-3.3-rpms --setopt=tsflags=nodocs \
+RUN yum install -y --setopt=tsflags=nodocs \
                   firefox \
                   vim \
                   redshift-gtk \

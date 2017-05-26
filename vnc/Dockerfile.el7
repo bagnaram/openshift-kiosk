@@ -9,9 +9,14 @@ LABEL io.openshift.expose-services="5901:tcp"
 
 USER root
 ENV DISPLAY="" \
-    HOME=/home/1001
+    HOME="/vnc"
 
 ARG vncpassword=password
+
+# Uncomment if building disconnected
+# ADD epel.repo /etc/yum.repos.d
+ADD https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm epel-release-7.noarch.rpm
+RUN rpm -ivh epel-release-7.noarch.rpm
 
 RUN yum clean all && \
     yum update -y && \
@@ -20,29 +25,43 @@ RUN yum clean all && \
     		   xorg-x11-server-utils \
                    xorg-x11-server-Xvfb \
                    xorg-x11-fonts-* \
+                   nss-wrapper \
+                   gettext \
                    xterm && \
                    yum clean all && \
                    rm -rf /var/cache/yum
 
 RUN yum install -y --setopt=tsflags=nodocs \
-                  openmotif \
+                  openbox \
+                  xfce4-panel \
+                  xfwm4 \
                   xterm \
                   firefox \
                   yum clean all && \
                   rm -rf /var/cache/yum/*
 
-RUN /bin/dbus-uuidgen --ensure
-RUN useradd -u 1001 -r -g 0 -d ${HOME} -s /bin/bash -c "Kiosk User" kioskuser
+RUN /bin/dbus-uuidgen --ensure && \
+    mkdir -p /vnc && mkdir -p /etc/skel/.vnc
 
-ADD xstartup ${HOME}/.vnc/
-RUN echo "${vncpassword}" | vncpasswd -f > ${HOME}/.vnc/passwd
-RUN touch /home/1001/.Xauthority
+ADD start.sh /etc/skel/start.sh
+ADD passwd.template /etc/skel/passwd.template
 
-RUN chown -R 1001:0 ${HOME} && \
-    chmod 775 ${HOME}/.vnc/xstartup && \
-    chmod 600 ${HOME}/.vnc/passwd
+ADD xstartup /etc/skel/.vnc
+ADD xfce4-panel.xml /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce-panel.xml
+
+RUN echo "${vncpassword}" | vncpasswd -f > /etc/skel/.vnc/passwd && \
+    touch /etc/skel/.Xauthority
+
+RUN chmod 775 /etc/skel/.vnc/xstartup && \
+    chmod 755 /etc/skel/start.sh && \
+    chmod 600 /etc/skel/.vnc/passwd
+
+RUN chgrp -R 0 /vnc && chmod -R g+rw /vnc
+RUN find /vnc -type d -exec chmod g+x {} +
+RUN chgrp -R 0 /etc/skel && chmod -R g+rw /etc/skel
+RUN find /etc/skel -type d -exec chmod g+x {} +
 
 EXPOSE 5901
 WORKDIR ${HOME}
 USER 1001
-ENTRYPOINT ["/usr/bin/vncserver","-fg"]
+ENTRYPOINT ["/etc/skel/start.sh"]
