@@ -1,7 +1,7 @@
 # Using the VNC image to run Eclipse
 # Version 1
 
-FROM kevensen/centos-vnc
+FROM rhel7.2
 
 MAINTAINER Kenneth D. Evensen <kevensen@redhat.com>
 

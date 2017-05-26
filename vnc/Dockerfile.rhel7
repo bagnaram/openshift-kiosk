@@ -1,5 +1,4 @@
-# Using CentOS 7 base image and VNC
-# Version 1
+# Using RHEL7 base image and VNC
 
 # Pull the rhel image from the local repository
 FROM rhel7.2
@@ -9,11 +8,14 @@ LABEL io.openshift.expose-services="5901:tcp"
 
 USER root
 ENV DISPLAY="" \
-    HOME="/vnc"
+    HOME="/vnc" \
+    VNCPASSWORD="password"
 
-ARG vncpassword=password
 
-ADD epel.repo /etc/yum.repos.d
+# Uncomment if building disconnected
+# ADD epel.repo /etc/yum.repos.d
+ADD https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm epel-release-7.noarch.rpm
+RUN rpm -ivh epel-release-7.noarch.rpm
 
 RUN yum clean all && \
     yum update -y && \
@@ -22,7 +24,7 @@ RUN yum clean all && \
     		   xorg-x11-server-utils \
                    xorg-x11-server-Xvfb \
                    xorg-x11-fonts-* \
-                   nss-wrapper \
+                   nss_wrapper \
                    gettext \
                    xterm && \
                    yum clean all && \
@@ -46,16 +48,19 @@ ADD passwd.template /etc/skel/passwd.template
 ADD xstartup /etc/skel/.vnc
 ADD xfce4-panel.xml /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce-panel.xml
 
-RUN echo "${vncpassword}" | vncpasswd -f > /etc/skel/.vnc/passwd && \
-    touch /etc/xkel/.Xauthority
+RUN echo ${VNCPASSWORD} | vncpasswd -f > /etc/skel/.vnc/passwd && \
+    touch /etc/skel/.Xauthority
 
 RUN chmod 775 /etc/skel/.vnc/xstartup && \
     chmod 755 /etc/skel/start.sh && \
     chmod 600 /etc/skel/.vnc/passwd
 
-RUN chgrp -R 0 /vnc && chmod -R g+r2 /vnc
+# small hack to allow root group permissions
+RUN sed -i 's!|| ($mode & 077)!!g' /usr/bin/vncserver
+
+RUN chgrp -R 0 /vnc && chmod -R g+rw /vnc
 RUN find /vnc -type d -exec chmod g+x {} +
-RUN chgrp -R 0 /etc/skel && chmod -R g+r2 /etc/skel
+RUN chgrp -R 0 /etc/skel && chmod -R g+rw /etc/skel
 RUN find /etc/skel -type d -exec chmod g+x {} +
 
 EXPOSE 5901

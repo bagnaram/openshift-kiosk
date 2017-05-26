@@ -1,5 +1,4 @@
 # Using CentOS 7 base image and VNC
-# Version 1
 
 # Pull the rhel image from the local repository
 FROM centos:7
@@ -9,9 +8,9 @@ LABEL io.openshift.expose-services="5901:tcp"
 
 USER root
 ENV DISPLAY="" \
-    HOME="/vnc"
+    HOME="/vnc" \
+    VNCPASSWORD="password"
 
-ARG vncpassword=password
 
 # Uncomment if building disconnected
 # ADD epel.repo /etc/yum.repos.d
@@ -25,7 +24,7 @@ RUN yum clean all && \
     		   xorg-x11-server-utils \
                    xorg-x11-server-Xvfb \
                    xorg-x11-fonts-* \
-                   nss-wrapper \
+                   nss_wrapper \
                    gettext \
                    xterm && \
                    yum clean all && \
@@ -49,12 +48,15 @@ ADD passwd.template /etc/skel/passwd.template
 ADD xstartup /etc/skel/.vnc
 ADD xfce4-panel.xml /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce-panel.xml
 
-RUN echo "${vncpassword}" | vncpasswd -f > /etc/skel/.vnc/passwd && \
+RUN echo ${VNCPASSWORD} | vncpasswd -f > /etc/skel/.vnc/passwd && \
     touch /etc/skel/.Xauthority
 
 RUN chmod 775 /etc/skel/.vnc/xstartup && \
     chmod 755 /etc/skel/start.sh && \
     chmod 600 /etc/skel/.vnc/passwd
+
+# small hack to allow root group permissions
+RUN sed -i 's!|| ($mode & 077)!!g' /usr/bin/vncserver
 
 RUN chgrp -R 0 /vnc && chmod -R g+rw /vnc
 RUN find /vnc -type d -exec chmod g+x {} +
